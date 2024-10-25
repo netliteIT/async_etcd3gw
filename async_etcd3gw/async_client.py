@@ -154,7 +154,39 @@ class AsyncEtcd3Client(object):
                     raise ex
                 return await resp.json()
         except asyncio.TimeoutError as ex:
-            raise ConnectionTimeoutError(str(ex))
+            # If timeout, check if json parameter was passed to the request
+            if "json" in kwargs:
+                # Add "serializable" key to the json parameter
+                modified_json = kwargs["json"].copy()
+                modified_json["serializable"] = True
+                
+                # Try again the request
+                try:
+                    kwargs["json"] = modified_json
+                    async with self.session.post(*args, **kwargs) as resp:
+                        ex = get_exception(resp.status, resp.text, resp.reason)
+                        if ex is not None:
+                            raise ex
+                        return await resp.json()
+                except asyncio.TimeoutError as ex:
+                    raise ConnectionTimeoutError(str(ex))  # Do not try anymore
+            elif "data" in kwargs and isinstance(kwargs["data"], dict):
+                # Add "serializable" key to the data parameter
+                modified_data = kwargs["data"].copy()
+                modified_data["serializable"] = True
+                
+                # Try again the request
+                try:
+                    kwargs["data"] = modified_data
+                    async with self.session.post(*args, **kwargs) as resp:
+                        ex = get_exception(resp.status, resp.text, resp.reason)
+                        if ex is not None:
+                            raise ex
+                        return await resp.json()
+                except asyncio.TimeoutError as ex:
+                    raise ConnectionTimeoutError(str(ex))
+            else:
+                raise ConnectionTimeoutError(str(ex))
         except aiohttp.ClientConnectionError as ex:
             raise ConnectionFailedError(str(ex))
 
@@ -295,7 +327,7 @@ class AsyncEtcd3Client(object):
         payload = {"key": _encode(key), "value": _encode(value)}
         if lease:
             payload["lease"] = lease.id
-        result = await self.post(self.get_url("/kv/put"), json=payload)
+        result = await self.post(self.get_url("/kv/put"), json=payload, timeout=5) # Added timeout for serializability
         if metadata:
             return result
         else:
@@ -345,7 +377,7 @@ class AsyncEtcd3Client(object):
             "sort_target": target,
         }
         payload.update(kwargs)
-        result = await self.post(self.get_url("/kv/range"), json=payload)
+        result = await self.post(self.get_url("/kv/range"), json=payload, timeout=5) # Added timeout for serializability
         if "kvs" not in result:
             return []
 
@@ -462,7 +494,7 @@ class AsyncEtcd3Client(object):
         }
         payload.update(kwargs)
 
-        result = await self.post(self.get_url("/kv/deleterange"), json=payload)
+        result = await self.post(self.get_url("/kv/deleterange"), json=payload, timeout=5) # Added timeout for serializability
         if metadata:
             return result
         else:
