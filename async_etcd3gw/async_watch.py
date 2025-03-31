@@ -96,17 +96,23 @@ class AsyncWatcher(object):
             await self.process_chunk(data)
 
     async def watch(self):
-        try:
-            timeout = aiohttp.ClientTimeout(total=None, sock_read=None)
-            async with self.async_client.session.post(
-                self.async_client.get_url("/watch"), json=self.create_request, timeout=timeout
-            ) as resp:
-                ex = get_exception(resp.status, resp.text, resp.reason)
-                if ex:
-                    raise ex
+        while True:
+            try:
+                timeout = aiohttp.ClientTimeout(total=None, sock_read=None)
+                async with self.async_client.session.post(
+                    self.async_client.get_url("/watch"), json=self.create_request, timeout=timeout
+                ) as resp:
+                    ex = get_exception(resp.status, resp.text, resp.reason)
+                    if ex:
+                        raise ex
+                    self.event.set()
+                    await self.read_and_process_chunk(resp.content)
+                break
+            except aiohttp.client_exceptions.ClientPayloadError as ex:
+                print("errore, chiudo ri-apro")
+                continue
+            except Exception as ex:
+                self.exception = ex
                 self.event.set()
-                await self.read_and_process_chunk(resp.content)
-        except Exception as ex:
-            self.exception = ex
-            self.event.set()
-            await self.callback(ex)
+                await self.callback(ex)
+                break
