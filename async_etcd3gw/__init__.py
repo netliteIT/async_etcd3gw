@@ -18,7 +18,7 @@ from .async_client import AsyncEtcd3Client, async_client
 from .async_lease import AsyncLease
 from .async_lock import AsyncLock
 
-__version__ = "a0.8"
+__version__ = "0.8.1"
 
 __all__ = (
     "AsyncEtcd3Client",
