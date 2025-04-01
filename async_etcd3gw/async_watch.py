@@ -109,7 +109,7 @@ class AsyncWatcher(object):
                     await self.read_and_process_chunk(resp.content)
                 break
             except aiohttp.client_exceptions.ClientPayloadError as ex:
-                print("errore, chiudo ri-apro")
+                print("Lost connection. Closing and re-opening watch...")
                 continue
             except Exception as ex:
                 self.exception = ex
